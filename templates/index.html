@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Visualization Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Data Visualization Dashboard</h1>
+        <div class="upload-form">
+            <form method="post" enctype="multipart/form-data" id="upload-form">
+                <label for="file-upload" class="file-upload-btn">Choose File</label>
+                <input id="file-upload" type="file" name="file" accept=".csv">
+                <input type="submit" value="Upload CSV">
+            </form>
+        </div>
+        <div class="graph-selection">
+            <label for="graph-type">Select Graph Type:</label>
+            <select id="graph-type">
+                <option value="bar">Bar Graph</option>
+                <option value="line">Line Graph</option>
+            </select>
+        </div>
+        <div id="chart"></div>
+        <div id="stats">
+            <p>Total: $<span id="total-value"></span></p>
+            <p>Average: $<span id="average-value"></span></p>
+        </div>
+    </div>
+    <script>
+        function fetchDataAndUpdateChart() {
+            fetch('/api/data')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Received data:', data);
+                    document.getElementById('total-value').textContent = data.total.toFixed(2);
+                    document.getElementById('average-value').textContent = data.average.toFixed(2);
+                    updateChart(data);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updateChart(data) {
+            var graphType = document.getElementById('graph-type').value;
+            if (graphType === 'bar') {
+                createBarChart(data);
+            } else {
+                createLineChart(data);
+            }
+        }
+
+        function createBarChart(data) {
+            console.log('Creating bar chart');
+            var chartData = [{
+                x: Object.keys(data.categories),
+                y: Object.values(data.categories),
+                type: 'bar',
+                marker: {
+                    color: 'rgb(158,202,225)',
+                    opacity: 0.8,
+                }
+            }];
+
+            var layout = {
+                title: 'Total Value by Category',
+                xaxis: { title: 'Category' },
+                yaxis: { title: 'Total Value' },
+                plot_bgcolor: 'rgba(230,243,255,0.8)',
+                paper_bgcolor: 'rgba(230,243,255,0.8)',
+            };
+
+            Plotly.newPlot('chart', chartData, layout);
+        }
+
+        function createLineChart(data) {
+            console.log('Creating line chart');
+            console.log('Time series data:', data.time_series);
+            var chartData = [];
+            
+            var colors = ['rgb(31,119,180)', 'rgb(255,127,14)', 'rgb(44,160,44)', 'rgb(214,39,40)'];
+            var i = 0;
+            
+            for (let category in data.time_series) {
+                let dates = data.time_series[category].map(item => item.date);
+                let values = data.time_series[category].map(item => item.value);
+                
+                chartData.push({
+                    x: dates,
+                    y: values,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: category,
+                    line: {color: colors[i % colors.length]}
+                });
+                i++;
+            }
+
+            var layout = {
+                title: 'Value Over Time by Category',
+                xaxis: { 
+                    title: 'Date',
+                    type: 'date'
+                },
+                yaxis: { title: 'Value' },
+                plot_bgcolor: 'rgba(230,243,255,0.8)',
+                paper_bgcolor: 'rgba(230,243,255,0.8)',
+            };
+
+            Plotly.newPlot('chart', chartData, layout);
+        }
+
+        // Initial data fetch and chart creation
+        fetchDataAndUpdateChart();
+
+        // Add event listener for graph type selection
+        document.getElementById('graph-type').addEventListener('change', fetchDataAndUpdateChart);
+
+        // Add event listener for form submission
+        document.getElementById('upload-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData(this);
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if(response.ok) {
+                    fetchDataAndUpdateChart();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
